@@ -28,14 +28,15 @@ def main():
 
     r = DemoParser(args.demo, verbosity=args.verbosity, frames=args.frames)
 
-    parse_thread = threading.Thread(target=r.parse, daemon=True, args=())
-    threads.append(parse_thread)
+    r.parse()
+    #parse_thread = threading.Thread(target=r.parse, daemon=True, args=())
+    #threads.append(parse_thread)
 
-    for thread in threads:
-        thread.start()
+    #for thread in threads:
+        #thread.start()
 
-    for thread in threads:
-        thread.join()
+    #for thread in threads:
+    #    thread.join()
 
 
 if __name__ == "__main__":
