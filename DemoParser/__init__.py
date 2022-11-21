@@ -12,8 +12,6 @@ import snappy
 import DOTA_COMBATLOG_TYPES
 import DOTA_UNIT_ORDER_TYPES
 import DemoClass
-import FileReader
-import NewEntity
 import PendingMessage
 import Serializer
 import StringTable
@@ -23,7 +21,9 @@ from DemoParser.MessageParser import parse_game_event_list_message, parse_servic
 from Field.Field import Field
 from Field.FieldModelEnum import FieldModelEnum
 from Field.FieldType import FieldType
+from FileReader import FileReader
 from GameEvent import GameEvent
+from NewEntity import NewEntity
 from PlayerInfo import PlayerInfo
 from proto import demo_pb2, netmessages_pb2, dota_shared_enums_pb2
 
@@ -61,11 +61,16 @@ def priority(cmd):
         return 0
 
 
+def parse_user_type_message(cmd, message):
+    pb_message = messages.DOTA_USER_MESSAGE_TYPES[cmd]()
+    pb_message.ParseFromString(message)
+    return pb_message
+
+
 class DemoParser(object):
 
-    def __init__(self, filename, verbosity=3, frames=None):
+    def __init__(self, filename, frames=None):
         self.filename = filename
-        self.verbosity = verbosity
         self.frames = frames
 
         self.event_list = None
@@ -241,10 +246,16 @@ class DemoParser(object):
                     logger.info('Cmd: 7')
                 elif cmd == 40:
                     self.parse_server_info(message)
+                elif cmd == 42:
+                    # TODO: add parser
+                    logger.info('Cmd: 42')
                 elif cmd == 44:
                     self.parse_service_message(cmd, message)
                 elif cmd == 45:
                     self.parse_service_message2(cmd, message)
+                elif cmd == 46:
+                    # TODO: add parser
+                    logger.info('Cmd: 46')
                 elif cmd == 51:
                     # TODO: add parser
                     logger.info('Cmd: 51')
@@ -252,26 +263,33 @@ class DemoParser(object):
                     self.parse_service_message3(cmd, message)
                 elif cmd == 145:
                     parse_service_message4(cmd, message)
+                elif cmd == 154:
+                    # TODO: add parser
+                    logger.info('Cmd: 154')
+                elif cmd == 205:
+                    # TODO: add parser
+                    logger.info('Cmd: 205')
                 elif cmd == 207:
                     parse_game_event_list_message(message)
                 elif cmd == 483:
-                    self.parse_user_type_message(cmd, message)
+                    parse_user_type_message(cmd, message)
+                elif cmd == 506:
+                    # TODO: add parser
+                    logger.info('Cmd: 506')
                 elif cmd == 547:
                     self.process_SpectatorPlayerUnitOrders(cmd, message)
                 elif cmd == 554:
                     self.parse_combat_log_entities(message)
             except TypeError:
-                print('Type')
+                logger.info('Type')
             except KeyError:
-                print("Key")
+                logger.info('Key')
 
     def parse_combat_log_entities(self, message):
         combat_log_names_string_table = self.string_tables["tables"][16]
         string_table_items = combat_log_names_string_table.items
         for item_index in combat_log_names_string_table.items:
             item = combat_log_names_string_table.items[item_index]
-            print(item.key)
-            print(item.value)
         pb_message = dota_shared_enums_pb2.CMsgDOTACombatLogEntry()
         pb_message.ParseFromString(message)
         if DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES(
@@ -290,7 +308,6 @@ class DemoParser(object):
                 pb_message.type) == DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_MODIFIER_ADD:
             target_name = string_table_items[pb_message.target_name].key
             attacker_name = string_table_items[pb_message.attacker_name].key
-            print(attacker_name)
             inflictor_name = string_table_items[pb_message.inflictor_name].key
             target_name = utils.ParseName(target_name)
             if pb_message.target_team == 2:
@@ -321,11 +338,6 @@ class DemoParser(object):
                     if inflictor_name in self.dire_heros_modifiers[target_name]:
                         self.dire_heros_modifiers[target_name].remove(inflictor_name)
 
-    def parse_user_type_message(self, cmd, message):
-        pb_message = messages.DOTA_USER_MESSAGE_TYPES[cmd]()
-        pb_message.ParseFromString(message)
-        return pb_message
-
     def parse_service_message3(self, cmd, message):
         pb_message = messages.SVC_MESSAGE_TYPES[cmd]()
         pb_message.ParseFromString(message)
@@ -341,7 +353,7 @@ class DemoParser(object):
                 entity_reader.read_var_uint32()
                 demo_class = self.classes_by_id[class_id]
                 baseline = self.class_baselines[class_id]
-                e = NewEntity.NewEntity(index, serial, demo_class)
+                e = NewEntity(index, serial, demo_class)
                 self.entities[index] = e
                 baseline_reader = FileReader.FileReader(BytesIO(bytes(baseline)))
                 s = demo_class.serializer
@@ -514,7 +526,7 @@ class DemoParser(object):
         self.game_build = int(searches.group(1))
 
     def process_SpectatorPlayerUnitOrders(self, cmd, message):
-        pb_message = self.parse_user_type_message(cmd, message)
+        pb_message = parse_user_type_message(cmd, message)
         order = DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_TYPES(pb_message.order_type).name
         if order == DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_MOVE_TO_POSITION.name:
             with open('1', 'a') as f:
@@ -550,13 +562,10 @@ class DemoParser(object):
             units_entity = self.entities[pb_message.units[0]]
             if units_entity is not None:
                 units_class_name = units_entity.demo_class.name
-                print(units_class_name)
             units_entity_info = utils.EntityMap(units_entity)
-            print(units_entity_info)
             ability_entity = self.entities[pb_message.ability_id]
             if ability_entity is not None:
                 ability_class_name = ability_entity.demo_class.name
-                print(ability_class_name)
             ability_entity_info = utils.EntityMap(ability_entity)
             m_p_entitym_name_stringable_index = ability_entity_info["m_pEntitym_nameStringableIndex"]
             item_name = entity_names_string_table.items[m_p_entitym_name_stringable_index]
@@ -673,14 +682,14 @@ class DemoParser(object):
         """
         with open(self.filename, 'rb') as f:
             p = f.read()
-            reader = FileReader.FileReader(BytesIO(p))
+            reader = FileReader(BytesIO(p))
 
             header = reader.read(8)
-            reader.read(8)
+            header2 = reader.read(8)
             if header.decode('utf-8') != "PBDEMS2\x00":
                 raise ValueError("Invalid replay - incorrect header")
 
-            BytesIO(f.read())
+            result = BytesIO(f.read())
 
             frame = 0
             more = True

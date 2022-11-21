@@ -57,12 +57,8 @@ class FileReader(object):
 
     def next_byte(self):
         self.pos += 1
-        if self.pos > self.size:
-            print('nextByte: insufficient buffer ({} of {})'.format(self.pos, self.size))
-
         value = self.stream.read(1)
         value = ord(value)
-
         return value
 
     def read_byte_test(self):
