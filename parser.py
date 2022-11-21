@@ -26,7 +26,7 @@ def main():
 
     threads = []
 
-    r = DemoParser(args.demo, frames=args.frames)
+    r = DemoParser(args.demo)
 
     r.parse()
     #parse_thread = threading.Thread(target=r.parse, daemon=True, args=())

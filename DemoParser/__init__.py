@@ -71,7 +71,6 @@ class DemoParser(object):
 
     def __init__(self, filename, frames=None):
         self.filename = filename
-        self.frames = frames
 
         self.event_list = None
         self.event_lookup = {}
@@ -220,7 +219,7 @@ class DemoParser(object):
         if isinstance(packet, demo_pb2.CDemoFullPacket):
             self.run_hooks(packet.string_table)
 
-        reader = FileReader.FileReader(BytesIO(p_data))
+        reader = FileReader(BytesIO(p_data))
         pending_message_list = []
         while reader.rem_bytes() > 0:
             cmd = reader.read_ubit_var()
@@ -341,7 +340,7 @@ class DemoParser(object):
     def parse_service_message3(self, cmd, message):
         pb_message = messages.SVC_MESSAGE_TYPES[cmd]()
         pb_message.ParseFromString(message)
-        entity_reader = FileReader.FileReader(BytesIO(pb_message.entity_data))
+        entity_reader = FileReader(BytesIO(pb_message.entity_data))
         index = -1
         for u in range(0, pb_message.updated_entries):
             index += entity_reader.read_ubit_var() + 1
@@ -355,7 +354,7 @@ class DemoParser(object):
                 baseline = self.class_baselines[class_id]
                 e = NewEntity(index, serial, demo_class)
                 self.entities[index] = e
-                baseline_reader = FileReader.FileReader(BytesIO(bytes(baseline)))
+                baseline_reader = FileReader(BytesIO(bytes(baseline)))
                 s = demo_class.serializer
                 utils.ReadFields(baseline_reader, s, e.state)
                 utils.ReadFields(entity_reader, s, e.state)
@@ -489,7 +488,7 @@ class DemoParser(object):
         pb_message.ParseFromString(message)
         buf = pb_message.string_data
         if pb_message.data_compressed:
-            string_table_reader = FileReader.FileReader(BytesIO(buf))
+            string_table_reader = FileReader(BytesIO(buf))
             s = string_table_reader.read_bytes(4)
 
             string_value = ""
@@ -648,7 +647,7 @@ class DemoParser(object):
         if cmd not in messages.COMBINED_USER_MESSAGE_TYPES:
             raise IndexError("Unknown user message cmd: %s" % (cmd,))
 
-        reader = FileReader.FileReader(StringIO(message.msg_data))
+        reader = FileReader(StringIO(message.msg_data))
         message_type = messages.COMBINED_USER_MESSAGE_TYPES[cmd]
         user_message = reader.read_message(message_type, read_size=False)
 
@@ -723,10 +722,6 @@ class DemoParser(object):
 
                 self.run_hooks(message)
 
-                frame += 1
-                if self.frames and frame > self.frames:
-                    break
-
     def demo_class_info(self, message):
         classes = message.classes
         for c in classes:
@@ -738,7 +733,7 @@ class DemoParser(object):
         self.update_instance_baseline()
 
     def demo_send_tables(self, message):
-        table_reader = FileReader.FileReader(BytesIO(message.data))
+        table_reader = FileReader(BytesIO(message.data))
         size = table_reader.read_var_uint32()
         message = table_reader.read_bytes(size)
         pb_message = netmessages_pb2.CSVCMsg_FlattenedSerializer()
