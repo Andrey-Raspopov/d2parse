@@ -12,8 +12,17 @@ def parse_service_message4(cmd, message):
     pb_message.ParseFromString(message)
 
 
-def fill_basic_entity_info(target_entity_info, entity_type, location_type_x, location_type_y):
+def fill_basic_entity_info(
+    target_entity_info, entity_type, location_type_x, location_type_y
+):
     target_name = target_entity_info[entity_type]
-    target_pos = [target_entity_info[location_type_x], target_entity_info[location_type_y]]
-    target_team = target_entity_info['m_iTeamNum']
+    target_pos = [
+        target_entity_info[location_type_x],
+        target_entity_info[location_type_y],
+    ]
+    target_team = target_entity_info["m_iTeamNum"]
     return target_pos
+
+
+def process_demo_file_header(message):
+    print(message)
