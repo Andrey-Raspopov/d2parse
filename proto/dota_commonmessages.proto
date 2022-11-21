@@ -1,7 +1,3 @@
-syntax = "proto2";
-
-package dota;
-
 import "networkbasetypes.proto";
 
 option optimize_for = SPEED;
@@ -78,7 +74,7 @@ message CDOTAMsg_LocationPing {
 	optional int32 target = 3;
 	optional bool direct_ping = 4;
 	optional int32 type = 5;
-	optional EPingSource ping_source = 6;
+	optional .EPingSource ping_source = 6 [default = k_ePingSource_Default];
 }
 
 message CDOTAMsg_ItemAlert {
@@ -102,7 +98,7 @@ message CDOTAMsg_WorldLine {
 }
 
 message CDOTAMsg_SendStatPopup {
-	optional EDOTAStatPopupTypes style = 1;
+	optional .EDOTAStatPopupTypes style = 1 [default = k_EDOTA_SPT_Textline];
 	repeated string stat_strings = 2;
 	repeated int32 stat_images = 3;
 	repeated int32 stat_image_types = 4;
@@ -122,11 +118,11 @@ message CDOTAMsg_CoachHUDPing {
 }
 
 message CDOTAMsg_UnitOrder {
-	optional dotaunitorder_t order_type = 2;
+	optional .dotaunitorder_t order_type = 2 [default = DOTA_UNIT_ORDER_NONE];
 	repeated int32 units = 3;
 	optional int32 target_index = 4;
 	optional int32 ability_index = 5;
-	optional CMsgVector position = 6;
+	optional .CMsgVector position = 6;
 	optional int32 sequence_number = 8;
 	optional uint32 flags = 9;
 }
@@ -138,7 +134,7 @@ message VersusScene_PlayActivity {
 		optional bool force_looping = 3;
 	}
 
-	repeated VersusScene_PlayActivity.ActivityInfo activities = 1;
+	repeated .VersusScene_PlayActivity.ActivityInfo activities = 1;
 	optional float playback_rate = 2;
 }
 
