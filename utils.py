@@ -665,12 +665,8 @@ def ParseStringTable(buf, num_updates, name, user_data_fixed_size, user_data_siz
 
                 value = r.read_bits_as_bytes(bit_size)
 
-            # print("key: ", key)
-            # print("value: ", value)
             new_item = StringTableItem(index, key, value)
             items.append(new_item)
-
-        # print("")
 
     return items
 

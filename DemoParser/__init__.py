@@ -1,25 +1,24 @@
-import logging
 import copy
 import ctypes
 import json
+import logging
 import math
 import os
-import re
 import time
 from io import BytesIO, StringIO
 
 import snappy
+
 import DOTA_COMBATLOG_TYPES
 import DOTA_UNIT_ORDER_TYPES
 import DemoClass
 import Serializer
-import StringTable
 import messages
 import utils
 from DemoParser.MessageParser import (
     parse_game_event_list_message,
     parse_service_message4,
-    fill_basic_entity_info, process_demo_file_header,
+    fill_basic_entity_info,
 )
 from Field.Field import Field
 from Field.FieldModelEnum import FieldModelEnum
@@ -29,6 +28,7 @@ from GameEvent import GameEvent
 from NewEntity import NewEntity
 from PendingMessage import PendingMessage
 from PlayerInfo import PlayerInfo
+from StringTable import StringTable
 from proto import demo_pb2, netmessages_pb2, dota_shared_enums_pb2
 
 logger = logging.getLogger()
@@ -78,9 +78,28 @@ def check_header(reader):
         raise ValueError("Invalid replay - incorrect header")
 
 
+class Game():
+    def __init__(self):
+        self.header = {"demo_file_stamp": None,
+                       "network_protocol": None,
+                       "server_name": None,
+                       'client_name': None,
+                       'map_name': None,
+                       'game_directory': None,
+                       'fullpackets_version': None,
+                       'allow_clientside_entities': None,
+                       'allow_clientside_particles': None,
+                       'addons': None,
+                       'demo_version_name': None,
+                       'demo_version_guid': None,
+                       'build_num': None}
+        self.server_info = {}
+
+
 class DemoParser(object):
     def __init__(self, filename, frames=None):
         self.filename = filename
+        self.game = Game()
 
         self.event_list = None
         self.event_lookup = {}
@@ -88,7 +107,6 @@ class DemoParser(object):
         self.combat_log_names = []
 
         self.tick = 0
-        self.game_build = 0
         self.class_info = False
         self.class_id_size = None
 
@@ -257,7 +275,7 @@ class DemoParser(object):
                 self.tick = tick
 
                 if message_type == demo_pb2.CDemoFileHeader:
-                    process_demo_file_header(message)
+                    self.process_demo_file_header(message)
                 elif message_type == demo_pb2.CDemoSendTables:
                     message = self.demo_send_tables(message)
                 elif message_type == demo_pb2.CDemoClassInfo:
@@ -269,8 +287,8 @@ class DemoParser(object):
 
     def run_hooks(self, message):
         if (
-            message.__class__ == demo_pb2.CDemoPacket
-            or message.__class__ == demo_pb2.CDemoFullPacket
+                message.__class__ == demo_pb2.CDemoPacket
+                or message.__class__ == demo_pb2.CDemoFullPacket
         ):
             self.parse_demo_packet(message)
         elif message.__class__ == demo_pb2.CDemoStringTables:
@@ -285,6 +303,12 @@ class DemoParser(object):
             pass
         elif message.__class__ == netmessages_pb2.CSVCMsg_UpdateStringTable:
             pass
+
+    def process_demo_file_header(self, message):
+        m = str(message).split('\n')[:-1]
+        for item in m:
+            line = item.split(':')
+            self.game.header[line[0]] = line[1]
 
     def parse_string_table(self, tables):
         for table in tables.tables:
@@ -343,31 +367,79 @@ class DemoParser(object):
             message = pending_message.message
             try:
                 if cmd == 4:
-                    # TODO: add parser
+                    """
+                    CDemoSendTables
+                    """
                     logger.info("Cmd: 4")
                 elif cmd == 6:
-                    # TODO: add parser
+                    # TODO: CDemoStringTables
+                    pb_message = messages.MESSAGE_TYPES[cmd]()
+                    pb_message.ParseFromString(message)
                     logger.info("Cmd: 6")
                 elif cmd == 7:
-                    # TODO: add parser
+                    # TODO: CDemoPacket??
+                    #pb_message = messages.MESSAGE_TYPES[cmd]()
+                    #pb_message.ParseFromString(message)
                     logger.info("Cmd: 7")
+                elif cmd == 8:
+                    # TODO: add
+                    pass
+                elif cmd == 9:
+                    # TODO: add
+                    pass
+                elif cmd == 11:
+                    # TODO: add
+                    pass
+                elif cmd == 12:
+                    # TODO: add
+                    pass
                 elif cmd == 40:
+                    """
+                    CSVCMsg_ServerInfo
+                    """
                     self.parse_server_info(message)
                 elif cmd == 42:
-                    # TODO: add parser
+                    """
+                    CSVCMsg_ClassInfo
+                    """
+                    pb_message = messages.SVC_MESSAGE_TYPES[cmd]()
+                    pb_message.ParseFromString(message)
                     logger.info("Cmd: 42")
                 elif cmd == 44:
-                    self.parse_service_message(cmd, message)
+                    """
+                    CSVCMsg_CreateStringTable
+                    """
+                    self.create_string_table(cmd, message)
                 elif cmd == 45:
+                    """
+                    CSVCMsg_UpdateStringTable
+                    """
                     self.parse_service_message2(cmd, message)
                 elif cmd == 46:
-                    # TODO: add parser
+                    """
+                    CSVCMsg_VoiceInit
+                    """
+                    pb_message = messages.SVC_MESSAGE_TYPES[cmd]()
+                    pb_message.ParseFromString(message)
                     logger.info("Cmd: 46")
                 elif cmd == 51:
-                    # TODO: add parser
+                    """
+                    CSVCMsg_ClearAllStringTables
+                    """
                     logger.info("Cmd: 51")
                 elif cmd == 55:
-                    self.parse_service_message3(cmd, message)
+                    """
+                    CSVCMsg_PacketEntities"""
+                    self.parse_packet_entities(cmd, message)
+                elif cmd == 62:
+                    # TODO: add
+                    pass
+                elif cmd == 124:
+                    # TODO: add
+                    pass
+                elif cmd == 130:
+                    # TODO: add
+                    pass
                 elif cmd == 145:
                     parse_service_message4(cmd, message)
                 elif cmd == 154:
@@ -378,15 +450,126 @@ class DemoParser(object):
                     logger.info("Cmd: 205")
                 elif cmd == 207:
                     parse_game_event_list_message(message)
+                elif cmd == 208:
+                    # TODO: add
+                    pass
+                elif cmd == 209:
+                    # TODO: add
+                    pass
+                elif cmd == 210:
+                    # TODO: add
+                    pass
+                elif cmd == 212:
+                    # TODO: add
+                    pass
+                elif cmd == 466:
+                    # TODO: add
+                    pass
+                elif cmd == 471:
+                    # TODO: add
+                    pass
+                elif cmd == 472:
+                    # TODO: add
+                    pass
+                elif cmd == 473:
+                    # TODO: add
+                    pass
+                elif cmd == 477:
+                    # TODO: add
+                    pass
+                elif cmd == 400:
+                    # TODO: add
+                    pass
+                elif cmd == 474:
+                    # TODO: add
+                    pass
+                elif cmd == 475:
+                    # TODO: add
+                    pass
+                elif cmd == 478:
+                    # TODO: add
+                    pass
+                elif cmd == 481:
+                    # TODO: add
+                    pass
+                elif cmd == 482:
+                    # TODO: add
+                    pass
                 elif cmd == 483:
                     parse_user_type_message(cmd, message)
+                elif cmd == 485:
+                    # TODO: add
+                    pass
+                elif cmd == 488:
+                    # TODO: add
+                    pass
+                elif cmd == 501:
+                    # TODO: add
+                    pass
                 elif cmd == 506:
                     # TODO: add parser
                     logger.info("Cmd: 506")
+                elif cmd == 512:
+                    # TODO: add
+                    pass
+                elif cmd == 518:
+                    # TODO: add
+                    pass
+                elif cmd == 520:
+                    # TODO: add
+                    pass
+                elif cmd == 521:
+                    # TODO: add
+                    pass
+                elif cmd == 522:
+                    # TODO: add
+                    pass
+                elif cmd == 533:
+                    # TODO: add
+                    pass
                 elif cmd == 547:
                     self.process_SpectatorPlayerUnitOrders(cmd, message)
+                elif cmd == 552:
+                    # TODO: add
+                    pass
+                elif cmd == 553:
+                    # TODO: add
+                    pass
                 elif cmd == 554:
                     self.parse_combat_log_entities(message)
+                elif cmd == 557:
+                    # TODO: add
+                    pass
+                elif cmd == 558:
+                    # TODO: add
+                    pass
+                elif cmd == 563:
+                    # TODO: add
+                    pass
+                elif cmd == 568:
+                    # TODO: add
+                    pass
+                elif cmd == 572:
+                    # TODO: add
+                    pass
+                elif cmd == 576:
+                    # TODO: add
+                    pass
+                elif cmd == 592:
+                    # TODO: add
+                    pass
+                elif cmd == 593:
+                    # TODO: add
+                    pass
+                elif cmd == 594:
+                    # TODO: add
+                    pass
+                elif cmd == 612:
+                    # TODO: add
+                    pass
+                else:
+                    print(cmd)
+                    raise ("No cmd")
             except TypeError:
                 logger.info("Type")
             except KeyError:
@@ -400,28 +583,28 @@ class DemoParser(object):
         pb_message = dota_shared_enums_pb2.CMsgDOTACombatLogEntry()
         pb_message.ParseFromString(message)
         if (
-            DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES(pb_message.type)
-            == DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_PURCHASE
+                DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES(pb_message.type)
+                == DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_PURCHASE
         ):
             pass
         elif (
-            DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES(pb_message.type)
-            == DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_ITEM
+                DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES(pb_message.type)
+                == DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_ITEM
         ):
             pass
         elif (
-            DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES(pb_message.type)
-            == DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_GOLD
+                DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES(pb_message.type)
+                == DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_GOLD
         ):
             pass
         elif (
-            DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES(pb_message.type)
-            == DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_ABILITY
+                DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES(pb_message.type)
+                == DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_ABILITY
         ):
             pass
         elif (
-            DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES(pb_message.type)
-            == DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_MODIFIER_ADD
+                DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES(pb_message.type)
+                == DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_MODIFIER_ADD
         ):
             target_name = string_table_items[pb_message.target_name].key
             attacker_name = string_table_items[pb_message.attacker_name].key
@@ -442,8 +625,8 @@ class DemoParser(object):
                     if inflictor_name not in self.dire_heros_modifiers[target_name]:
                         self.dire_heros_modifiers[target_name].append(inflictor_name)
         elif (
-            DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES(pb_message.type)
-            == DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_MODIFIER_REMOVE
+                DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES(pb_message.type)
+                == DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_MODIFIER_REMOVE
         ):
             target_name = string_table_items[pb_message.target_name].key
             target_name = utils.ParseName(target_name)
@@ -457,7 +640,7 @@ class DemoParser(object):
                     if inflictor_name in self.dire_heros_modifiers[target_name]:
                         self.dire_heros_modifiers[target_name].remove(inflictor_name)
 
-    def parse_service_message3(self, cmd, message):
+    def parse_packet_entities(self, cmd, message):
         pb_message = messages.SVC_MESSAGE_TYPES[cmd]()
         pb_message.ParseFromString(message)
         entity_reader = FileReader(BytesIO(pb_message.entity_data))
@@ -466,6 +649,7 @@ class DemoParser(object):
             index += entity_reader.read_ubit_var() + 1
 
             cmd = entity_reader.read_bits(2)
+            # TODO: Rework that shit
             if cmd == 2:
                 class_id = entity_reader.read_bits(self.class_id_size)
                 serial = entity_reader.read_bits(17)
@@ -615,7 +799,7 @@ class DemoParser(object):
         if string_table.name == "instancebaseline":
             self.update_instance_baseline()
 
-    def parse_service_message(self, cmd, message):
+    def create_string_table(self, cmd, message):
         pb_message = messages.SVC_MESSAGE_TYPES[cmd]()
         pb_message.ParseFromString(message)
         buf = pb_message.string_data
@@ -629,29 +813,23 @@ class DemoParser(object):
 
             if string_value != "LZSS":
                 buf = snappy.decompress(buf)
-        num_updates = pb_message.num_entries
-        name = pb_message.name
-        user_data_fixed_size = pb_message.user_data_fixed_size
-        user_data_size = pb_message.user_data_size
-        user_data_size_bits = pb_message.user_data_size_bits
-        flags = pb_message.flags
-        string_table = StringTable.StringTable(
+        string_table = StringTable(
             self.string_tables["next_index"],
-            name,
-            user_data_fixed_size,
-            user_data_size,
-            user_data_size_bits,
-            flags,
+            pb_message.name,
+            pb_message.user_data_fixed_size,
+            pb_message.user_data_size,
+            pb_message.user_data_size_bits,
+            pb_message.flags,
         )
         self.string_tables["next_index"] += 1
         items = utils.ParseStringTable(
             buf,
-            num_updates,
-            name,
-            user_data_fixed_size,
-            user_data_size,
-            user_data_size_bits,
-            flags,
+            pb_message.num_entries,
+            pb_message.name,
+            pb_message.user_data_fixed_size,
+            pb_message.user_data_size,
+            pb_message.user_data_size_bits,
+            pb_message.flags,
         )
         for item in items:
             string_table.items[item.index] = item
@@ -663,19 +841,32 @@ class DemoParser(object):
     def parse_server_info(self, message):
         pb_message = netmessages_pb2.CSVCMsg_ServerInfo()
         pb_message.ParseFromString(message)
-        self.class_id_size = (
-            int(math.log(float(pb_message.max_classes)) / math.log(2)) + 1
-        )
-        p = re.compile(r"/dota_v(\d+)/")
-        searches = p.search(pb_message.game_dir)
-        self.game_build = int(searches.group(1))
+        self.class_id_size = int(math.log(float(pb_message.max_classes)) / math.log(2)) + 1
+        data = str(pb_message).split('\n')[:-1]
+        all_data = {}
+        config = {}
+        is_config = False
+        for item in data:
+            if item=='game_session_config {':
+                is_config = True
+                continue
+            elif item=='}':
+                is_config = False
+                continue
+            item = item.split(':')
+            if is_config:
+                config[item[0]] = item[1]
+            else:
+                all_data[item[0]] = item[1]
+        all_data['game_session_config'] = config
+        self.game.server_info = all_data
 
     def process_SpectatorPlayerUnitOrders(self, cmd, message):
         pb_message = parse_user_type_message(cmd, message)
         order = DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_TYPES(pb_message.order_type).name
         if (
-            order
-            == DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_MOVE_TO_POSITION.name
+                order
+                == DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_MOVE_TO_POSITION.name
         ):
             with open("1", "a") as f:
                 dump = json.dumps(
@@ -693,8 +884,8 @@ class DemoParser(object):
             self.move_to_position_y = self.move_to_position_y / 4.0
             self.move_to_position_delay = 3
         elif (
-            order
-            == DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_MOVE_TO_TARGET.name
+                order
+                == DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_MOVE_TO_TARGET.name
         ):
             target_entity = self.entities[pb_message.target_index]
             demo_class = target_entity.demo_class
@@ -714,16 +905,16 @@ class DemoParser(object):
                 )
                 self.fill_move_entity_info(target_entity_info, target_pos, "npc_name")
         elif (
-            order
-            == DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_PURCHASE_ITEM.name
+                order
+                == DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_PURCHASE_ITEM.name
         ):
             purchase_item_name = item_dict[pb_message.ability_id]
 
             self.purchase_item = purchase_item_name
             self.purchase_item_delay = 3
         elif (
-            order
-            == DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_TRAIN_ABILITY.name
+                order
+                == DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_TRAIN_ABILITY.name
         ):
             entity_names_string_table = self.string_tables["tables"][7]
             units_entity = self.entities[pb_message.units[0]]
@@ -743,8 +934,8 @@ class DemoParser(object):
             self.train_ability = item_name.key
             self.train_ability_delay = 3
         elif (
-            order
-            == DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_CAST_NO_TARGET.name
+                order
+                == DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_CAST_NO_TARGET.name
         ):
             unit_entity = self.entities[pb_message.entindex]
             unit_entity_e_map = utils.EntityMap(unit_entity)
@@ -762,8 +953,8 @@ class DemoParser(object):
             self.no_target_ability = item_name.key
             self.no_target_ability_delay = 3
         elif (
-            order
-            == DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_CAST_POSITION.name
+                order
+                == DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_CAST_POSITION.name
         ):
             entity_names_string_table = self.string_tables["tables"][7]
             for item_index in entity_names_string_table.items:
@@ -778,14 +969,14 @@ class DemoParser(object):
                 m_p_entitym_name_stringable_index
             ]
         elif (
-            order
-            == DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_CAST_TARGET_TREE.name
+                order
+                == DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_CAST_TARGET_TREE.name
         ):
             self.cast_target_tree = True
             self.cast_target_tree_delay = 3
         elif (
-            order
-            == DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_CAST_TARGET.name
+                order
+                == DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_CAST_TARGET.name
         ):
             entity_names_string_table = self.string_tables["tables"][7]
             target_entity = self.entities[pb_message.target_index]
@@ -807,8 +998,8 @@ class DemoParser(object):
                 os.system('spd-say "ability capture is appeared"')
                 time.sleep(10000)
         elif (
-            order
-            == DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_ATTACK_TARGET.name
+                order
+                == DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_ATTACK_TARGET.name
         ):
             target_entity = self.entities[pb_message.target_index]
             demo_class = target_entity.demo_class
@@ -838,8 +1029,8 @@ class DemoParser(object):
                 self.attack_target_name = target_entity_info["npc_name"]
                 self.attack_target_delay = 3
         elif (
-            order
-            == DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_PICKUP_RUNE.name
+                order
+                == DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_TYPES.DOTA_UNIT_ORDER_PICKUP_RUNE.name
         ):
             entity_names_string_table = self.string_tables["tables"][7]
             target_entity = self.entities[pb_message.target_index]
@@ -906,7 +1097,7 @@ class DemoParser(object):
         pb_message.ParseFromString(message)
         patches = []
         for field_patch in utils.FieldPatches:
-            if field_patch.should_apply(self.game_build):
+            if field_patch.should_apply(int(self.game.header['build_num'])):
                 patches.append(field_patch)
         fields = {}
         field_types = {}
@@ -915,7 +1106,7 @@ class DemoParser(object):
             for field_index in s.fields_index:
                 if field_index not in fields:
                     field = Field(pb_message, pb_message.fields[field_index])
-                    if self.game_build <= 990:
+                    if int(self.game.header['build_num']) <= 990:
                         field.parent_name = serializer.name
 
                     if field.var_type not in field_types:
@@ -934,11 +1125,11 @@ class DemoParser(object):
                         field_patch.patch(field)
 
                     if (
-                        field.serializer is not None
-                        or field.field_type.base_type == "CBodyComponent"
+                            field.serializer is not None
+                            or field.field_type.base_type == "CBodyComponent"
                     ):
                         if (
-                            field.field_type.base_type in utils.pointerTypes
+                                field.field_type.base_type in utils.pointerTypes
                         ) and utils.pointerTypes[field.field_type.base_type]:
                             field.set_model(FieldModelEnum.fieldModelFixedTable.value)
                         else:
@@ -946,13 +1137,13 @@ class DemoParser(object):
                                 FieldModelEnum.fieldModelVariableTable.value
                             )
                     elif (
-                        field.field_type.count > 0
-                        and field.field_type.base_type != "char"
+                            field.field_type.count > 0
+                            and field.field_type.base_type != "char"
                     ):
                         field.set_model(FieldModelEnum.fieldModelFixedArray.value)
                     elif (
-                        field.field_type.base_type == "CUtlVector"
-                        or field.field_type.base_type == "CNetworkUtlVectorBase"
+                            field.field_type.base_type == "CUtlVector"
+                            or field.field_type.base_type == "CNetworkUtlVectorBase"
                     ):
                         field.set_model(FieldModelEnum.fieldModelVariableArray.value)
                     else:

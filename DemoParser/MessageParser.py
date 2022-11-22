@@ -24,5 +24,5 @@ def fill_basic_entity_info(
     return target_pos
 
 
-def process_demo_file_header(message):
-    print(message)
+
+
