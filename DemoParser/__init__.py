@@ -24,6 +24,7 @@ from Field.Field import Field
 from Field.FieldModelEnum import FieldModelEnum
 from Field.FieldType import FieldType
 from FileReader import FileReader
+from Game import Game
 from GameEvent import GameEvent
 from NewEntity import NewEntity
 from PendingMessage import PendingMessage
@@ -71,33 +72,8 @@ def parse_user_type_message(cmd, message):
     return pb_message
 
 
-def check_header(reader):
-    header = reader.read(8)
-    reader.read(8)
-    if header.decode("utf-8") != "PBDEMS2\x00":
-        raise ValueError("Invalid replay - incorrect header")
-
-
-class Game():
-    def __init__(self):
-        self.header = {"demo_file_stamp": None,
-                       "network_protocol": None,
-                       "server_name": None,
-                       'client_name': None,
-                       'map_name': None,
-                       'game_directory': None,
-                       'fullpackets_version': None,
-                       'allow_clientside_entities': None,
-                       'allow_clientside_particles': None,
-                       'addons': None,
-                       'demo_version_name': None,
-                       'demo_version_guid': None,
-                       'build_num': None}
-        self.server_info = {}
-
-
 class DemoParser(object):
-    def __init__(self, filename, frames=None):
+    def __init__(self, filename):
         self.filename = filename
         self.game = Game()
 
@@ -120,7 +96,7 @@ class DemoParser(object):
         self.camera_middle_x = 3600
         self.camera_middle_y = 600
 
-        self.radiant_heros, self.dire_heros = {}, {}
+        self.radiant_heroes, self.dire_heroes = {}, {}
 
         (
             self.hero1_pos,
@@ -242,7 +218,7 @@ class DemoParser(object):
         self.move_to_target_name = None
         self.move_to_target_delay = 0
 
-        self.radiant_heros_modifiers, self.dire_heros_modifiers = {}, {}
+        self.radiant_heroes_modifiers, self.dire_heroes_modifiers = {}, {}
 
         self.minimap_drag = False
 
@@ -250,9 +226,7 @@ class DemoParser(object):
         with open(self.filename, "rb") as f:
             p = f.read()
             reader = FileReader(BytesIO(p))
-
-            check_header(reader)
-
+            reader.check_header()
             while reader.remaining > 0:
                 cmd = reader.read_vint32()
                 tick = reader.read_vint32()
@@ -365,215 +339,225 @@ class DemoParser(object):
         for pending_message in pending_message_list:
             cmd = pending_message.cmd
             message = pending_message.message
-            try:
-                if cmd == 4:
-                    """
-                    CDemoSendTables
-                    """
-                    logger.info("Cmd: 4")
-                elif cmd == 6:
-                    # TODO: CDemoStringTables
-                    pb_message = messages.MESSAGE_TYPES[cmd]()
-                    pb_message.ParseFromString(message)
-                    logger.info("Cmd: 6")
-                elif cmd == 7:
-                    # TODO: CDemoPacket??
-                    #pb_message = messages.MESSAGE_TYPES[cmd]()
-                    #pb_message.ParseFromString(message)
-                    logger.info("Cmd: 7")
-                elif cmd == 8:
-                    # TODO: add
-                    pass
-                elif cmd == 9:
-                    # TODO: add
-                    pass
-                elif cmd == 11:
-                    # TODO: add
-                    pass
-                elif cmd == 12:
-                    # TODO: add
-                    pass
-                elif cmd == 40:
-                    """
-                    CSVCMsg_ServerInfo
-                    """
-                    self.parse_server_info(message)
-                elif cmd == 42:
-                    """
-                    CSVCMsg_ClassInfo
-                    """
-                    pb_message = messages.SVC_MESSAGE_TYPES[cmd]()
-                    pb_message.ParseFromString(message)
-                    logger.info("Cmd: 42")
-                elif cmd == 44:
-                    """
-                    CSVCMsg_CreateStringTable
-                    """
-                    self.create_string_table(cmd, message)
-                elif cmd == 45:
-                    """
-                    CSVCMsg_UpdateStringTable
-                    """
-                    self.parse_service_message2(cmd, message)
-                elif cmd == 46:
-                    """
-                    CSVCMsg_VoiceInit
-                    """
-                    pb_message = messages.SVC_MESSAGE_TYPES[cmd]()
-                    pb_message.ParseFromString(message)
-                    logger.info("Cmd: 46")
-                elif cmd == 51:
-                    """
-                    CSVCMsg_ClearAllStringTables
-                    """
-                    logger.info("Cmd: 51")
-                elif cmd == 55:
-                    """
-                    CSVCMsg_PacketEntities"""
+            if cmd == 4:
+                """
+                CDemoSendTables
+                """
+                pb_message = messages.MESSAGE_TYPES[cmd]()
+                pb_message.ParseFromString(message)
+                logger.info("Cmd: 4")
+            elif cmd == 6:
+                # TODO: CDemoStringTables
+                pb_message = messages.MESSAGE_TYPES[cmd]()
+                pb_message.ParseFromString(message)
+                logger.info("Cmd: 6")
+            elif cmd == 7:
+                # TODO: CDemoPacket??
+                logger.info("Cmd: 7")
+            elif cmd == 8:
+                # TODO: add
+                pass
+            elif cmd == 9:
+                # TODO: add
+                pass
+            elif cmd == 11:
+                # TODO: add
+                pass
+            elif cmd == 12:
+                # TODO: add
+                pass
+            elif cmd == 40:
+                """
+                CSVCMsg_ServerInfo
+                """
+                self.parse_server_info(message)
+            elif cmd == 42:
+                """
+                CSVCMsg_ClassInfo
+                """
+                pb_message = messages.SVC_MESSAGE_TYPES[cmd]()
+                pb_message.ParseFromString(message)
+                logger.info("Cmd: 42")
+            elif cmd == 44:
+                """
+                CSVCMsg_CreateStringTable
+                """
+                self.create_string_table(cmd, message)
+            elif cmd == 45:
+                """
+                CSVCMsg_UpdateStringTable
+                """
+                self.parse_service_message2(cmd, message)
+            elif cmd == 46:
+                """
+                CSVCMsg_VoiceInit
+                """
+                pb_message = messages.SVC_MESSAGE_TYPES[cmd]()
+                pb_message.ParseFromString(message)
+                logger.info("Cmd: 46")
+            elif cmd == 51:
+                """
+                CSVCMsg_ClearAllStringTables
+                """
+                pb_message = messages.DEMO_PACKET_MESSAGE_TYPES[cmd]()
+                pb_message.ParseFromString(message)
+                logger.info("Cmd: 51")
+            elif cmd == 55:
+                """
+                CSVCMsg_PacketEntities"""
+                try:
                     self.parse_packet_entities(cmd, message)
-                elif cmd == 62:
-                    # TODO: add
-                    pass
-                elif cmd == 124:
-                    # TODO: add
-                    pass
-                elif cmd == 130:
-                    # TODO: add
-                    pass
-                elif cmd == 145:
-                    parse_service_message4(cmd, message)
-                elif cmd == 154:
-                    # TODO: add parser
-                    logger.info("Cmd: 154")
-                elif cmd == 205:
-                    # TODO: add parser
-                    logger.info("Cmd: 205")
-                elif cmd == 207:
-                    parse_game_event_list_message(message)
-                elif cmd == 208:
-                    # TODO: add
-                    pass
-                elif cmd == 209:
-                    # TODO: add
-                    pass
-                elif cmd == 210:
-                    # TODO: add
-                    pass
-                elif cmd == 212:
-                    # TODO: add
-                    pass
-                elif cmd == 466:
-                    # TODO: add
-                    pass
-                elif cmd == 471:
-                    # TODO: add
-                    pass
-                elif cmd == 472:
-                    # TODO: add
-                    pass
-                elif cmd == 473:
-                    # TODO: add
-                    pass
-                elif cmd == 477:
-                    # TODO: add
-                    pass
-                elif cmd == 400:
-                    # TODO: add
-                    pass
-                elif cmd == 474:
-                    # TODO: add
-                    pass
-                elif cmd == 475:
-                    # TODO: add
-                    pass
-                elif cmd == 478:
-                    # TODO: add
-                    pass
-                elif cmd == 481:
-                    # TODO: add
-                    pass
-                elif cmd == 482:
-                    # TODO: add
-                    pass
-                elif cmd == 483:
-                    parse_user_type_message(cmd, message)
-                elif cmd == 485:
-                    # TODO: add
-                    pass
-                elif cmd == 488:
-                    # TODO: add
-                    pass
-                elif cmd == 501:
-                    # TODO: add
-                    pass
-                elif cmd == 506:
-                    # TODO: add parser
-                    logger.info("Cmd: 506")
-                elif cmd == 512:
-                    # TODO: add
-                    pass
-                elif cmd == 518:
-                    # TODO: add
-                    pass
-                elif cmd == 520:
-                    # TODO: add
-                    pass
-                elif cmd == 521:
-                    # TODO: add
-                    pass
-                elif cmd == 522:
-                    # TODO: add
-                    pass
-                elif cmd == 533:
-                    # TODO: add
-                    pass
-                elif cmd == 547:
+                except TypeError:
+                    logger.error(f'wrong baseline size')
+                except IndexError:
+                    logger.error(f'wrong entity size')
+                except KeyError:
+                    logger.error('no such entity')
+            elif cmd == 62:
+                # TODO: add
+                pass
+            elif cmd == 124:
+                # TODO: add
+                pass
+            elif cmd == 130:
+                # TODO: add
+                pass
+            elif cmd == 145:
+                parse_service_message4(cmd, message)
+            elif cmd == 154:
+                # TODO: add parser
+                logger.info("Cmd: 154")
+            elif cmd == 205:
+                # TODO: add parser
+                logger.info("Cmd: 205")
+            elif cmd == 207:
+                parse_game_event_list_message(message)
+            elif cmd == 208:
+                # TODO: add
+                pass
+            elif cmd == 209:
+                # TODO: add
+                pass
+            elif cmd == 210:
+                # TODO: add
+                pass
+            elif cmd == 212:
+                # TODO: add
+                pass
+            elif cmd == 466:
+                # TODO: add
+                pass
+            elif cmd == 471:
+                # TODO: add
+                pass
+            elif cmd == 472:
+                # TODO: add
+                pass
+            elif cmd == 473:
+                # TODO: add
+                pass
+            elif cmd == 477:
+                # TODO: add
+                pass
+            elif cmd == 400:
+                # TODO: add
+                pass
+            elif cmd == 474:
+                # TODO: add
+                pass
+            elif cmd == 475:
+                # TODO: add
+                pass
+            elif cmd == 478:
+                # TODO: add
+                pass
+            elif cmd == 481:
+                # TODO: add
+                pass
+            elif cmd == 482:
+                # TODO: add
+                pass
+            elif cmd == 483:
+                parse_user_type_message(cmd, message)
+            elif cmd == 485:
+                # TODO: add
+                pass
+            elif cmd == 488:
+                # TODO: add
+                pass
+            elif cmd == 501:
+                # TODO: add
+                pass
+            elif cmd == 506:
+                # TODO: add parser
+                logger.info("Cmd: 506")
+            elif cmd == 512:
+                # TODO: add
+                pass
+            elif cmd == 518:
+                # TODO: add
+                pass
+            elif cmd == 520:
+                # TODO: add
+                pass
+            elif cmd == 521:
+                # TODO: add
+                pass
+            elif cmd == 522:
+                # TODO: add
+                pass
+            elif cmd == 533:
+                # TODO: add
+                pass
+            elif cmd == 547:
+                try:
                     self.process_SpectatorPlayerUnitOrders(cmd, message)
-                elif cmd == 552:
-                    # TODO: add
-                    pass
-                elif cmd == 553:
-                    # TODO: add
-                    pass
-                elif cmd == 554:
+                except KeyError:
+                    "Key"
+            elif cmd == 552:
+                # TODO: add
+                pass
+            elif cmd == 553:
+                # TODO: add
+                pass
+            elif cmd == 554:
+                try:
                     self.parse_combat_log_entities(message)
-                elif cmd == 557:
-                    # TODO: add
-                    pass
-                elif cmd == 558:
-                    # TODO: add
-                    pass
-                elif cmd == 563:
-                    # TODO: add
-                    pass
-                elif cmd == 568:
-                    # TODO: add
-                    pass
-                elif cmd == 572:
-                    # TODO: add
-                    pass
-                elif cmd == 576:
-                    # TODO: add
-                    pass
-                elif cmd == 592:
-                    # TODO: add
-                    pass
-                elif cmd == 593:
-                    # TODO: add
-                    pass
-                elif cmd == 594:
-                    # TODO: add
-                    pass
-                elif cmd == 612:
-                    # TODO: add
-                    pass
-                else:
-                    print(cmd)
-                    raise ("No cmd")
-            except TypeError:
-                logger.info("Type")
-            except KeyError:
-                logger.info("Key")
+                except KeyError:
+                    "Key"
+            elif cmd == 557:
+                # TODO: add
+                pass
+            elif cmd == 558:
+                # TODO: add
+                pass
+            elif cmd == 563:
+                # TODO: add
+                pass
+            elif cmd == 568:
+                # TODO: add
+                pass
+            elif cmd == 572:
+                # TODO: add
+                pass
+            elif cmd == 576:
+                # TODO: add
+                pass
+            elif cmd == 592:
+                # TODO: add
+                pass
+            elif cmd == 593:
+                # TODO: add
+                pass
+            elif cmd == 594:
+                # TODO: add
+                pass
+            elif cmd == 612:
+                # TODO: add
+                pass
+            else:
+                print(cmd)
+                raise "No cmd"
 
     def parse_combat_log_entities(self, message):
         combat_log_names_string_table = self.string_tables["tables"][16]
@@ -611,19 +595,19 @@ class DemoParser(object):
             inflictor_name = string_table_items[pb_message.inflictor_name].key
             target_name = utils.ParseName(target_name)
             if pb_message.target_team == 2:
-                if target_name not in self.radiant_heros_modifiers:
-                    self.radiant_heros_modifiers[target_name] = []
-                    self.radiant_heros_modifiers[target_name].append(inflictor_name)
+                if target_name not in self.radiant_heroes_modifiers:
+                    self.radiant_heroes_modifiers[target_name] = []
+                    self.radiant_heroes_modifiers[target_name].append(inflictor_name)
                 else:
-                    if inflictor_name not in self.radiant_heros_modifiers[target_name]:
-                        self.radiant_heros_modifiers[target_name].append(inflictor_name)
+                    if inflictor_name not in self.radiant_heroes_modifiers[target_name]:
+                        self.radiant_heroes_modifiers[target_name].append(inflictor_name)
             elif pb_message.target_team == 3:
-                if target_name not in self.dire_heros_modifiers:
-                    self.dire_heros_modifiers[target_name] = []
-                    self.dire_heros_modifiers[target_name].append(inflictor_name)
+                if target_name not in self.dire_heroes_modifiers:
+                    self.dire_heroes_modifiers[target_name] = []
+                    self.dire_heroes_modifiers[target_name].append(inflictor_name)
                 else:
-                    if inflictor_name not in self.dire_heros_modifiers[target_name]:
-                        self.dire_heros_modifiers[target_name].append(inflictor_name)
+                    if inflictor_name not in self.dire_heroes_modifiers[target_name]:
+                        self.dire_heroes_modifiers[target_name].append(inflictor_name)
         elif (
                 DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES(pb_message.type)
                 == DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_TYPES.DOTA_COMBATLOG_MODIFIER_REMOVE
@@ -633,19 +617,22 @@ class DemoParser(object):
             inflictor_name = string_table_items[pb_message.inflictor_name].key
             if pb_message.target_team == 2:
                 if target_name != "":
-                    if inflictor_name in self.radiant_heros_modifiers[target_name]:
-                        self.radiant_heros_modifiers[target_name].remove(inflictor_name)
+                    if inflictor_name in self.radiant_heroes_modifiers[target_name]:
+                        self.radiant_heroes_modifiers[target_name].remove(inflictor_name)
             elif pb_message.target_team == 3:
                 if target_name != "":
-                    if inflictor_name in self.dire_heros_modifiers[target_name]:
-                        self.dire_heros_modifiers[target_name].remove(inflictor_name)
+                    if inflictor_name in self.dire_heroes_modifiers[target_name]:
+                        self.dire_heroes_modifiers[target_name].remove(inflictor_name)
 
     def parse_packet_entities(self, cmd, message):
         pb_message = messages.SVC_MESSAGE_TYPES[cmd]()
         pb_message.ParseFromString(message)
         entity_reader = FileReader(BytesIO(pb_message.entity_data))
+
+        update_count = pb_message.updated_entries
         index = -1
-        for u in range(0, pb_message.updated_entries):
+
+        for u in range(update_count):
             index += entity_reader.read_ubit_var() + 1
 
             cmd = entity_reader.read_bits(2)
@@ -662,20 +649,13 @@ class DemoParser(object):
                 s = demo_class.serializer
                 utils.ReadFields(baseline_reader, s, e.state)
                 utils.ReadFields(entity_reader, s, e.state)
-            elif cmd == 0:
+            elif cmd == 0:  # UPDATE
                 e = self.entities[index]
-                op = utils.EntityOpUpdated
-
                 if not e.active:
                     e.active = True
-                    op |= utils.EntityOpEntered
-
                 utils.ReadFields(entity_reader, e.demo_class.serializer, e.state)
             elif cmd == 1 or cmd == 3:
-                op = utils.EntityOpLeft
-
                 if cmd & 0x02 != 0:
-                    op |= utils.EntityOpDeleted
                     self.entities[index] = None
         npcs = {}
         buildings = {}
@@ -686,6 +666,13 @@ class DemoParser(object):
 
             if entity is not None:
                 if entity.demo_class.name == "CDOTAPlayer":
+                    # TODO: parse player
+                    pass
+                elif entity.demo_class.name == 'CWorld':
+                    # TODO: parse world
+                    pass
+                elif entity.demo_class.name == 'CDOTAPlayerController':
+                    # TODO: parse controller
                     pass
                 elif entity.demo_class.name == "CDOTAGamerulesProxy":
                     e_map = utils.EntityMap(entity)
@@ -719,9 +706,9 @@ class DemoParser(object):
                             "respawning": entity_info["m_bIsWaitingToSpawn"],
                         }
                         if entity_info["m_iTeamNum"] == 2:
-                            self.radiant_heros[hero_name] = hero
+                            self.radiant_heroes[hero_name] = hero
                         elif entity_info["m_iTeamNum"] == 3:
-                            self.dire_heros[hero_name] = hero
+                            self.dire_heroes[hero_name] = hero
                 elif entity.demo_class.name.startswith("CDOTA_BaseNPC_Creep_Lane"):
                     entity_info = utils.GetNpcInfo(entity)
 
@@ -842,15 +829,15 @@ class DemoParser(object):
         pb_message = netmessages_pb2.CSVCMsg_ServerInfo()
         pb_message.ParseFromString(message)
         self.class_id_size = int(math.log(float(pb_message.max_classes)) / math.log(2)) + 1
-        data = str(pb_message).split('\n')[:-1]
+        server_info = str(pb_message).split('\n')[:-1]
         all_data = {}
         config = {}
         is_config = False
-        for item in data:
-            if item=='game_session_config {':
+        for item in server_info:
+            if item == 'game_session_config {':
                 is_config = True
                 continue
-            elif item=='}':
+            elif item == '}':
                 is_config = False
                 continue
             item = item.split(':')
@@ -1062,10 +1049,6 @@ class DemoParser(object):
             self.event_lookup[descriptor.eventid] = descriptor
 
     def parse_game_event(self, event):
-        """
-        So CSVCMsg_GameEventList is a list of all events that can happen.
-        A game event has an eventid which maps to a type of event that happened
-        """
         if event.eventid in self.event_lookup:
             # Bash this into a nicer data format to work with
             event_type = self.event_lookup[event.eventid]

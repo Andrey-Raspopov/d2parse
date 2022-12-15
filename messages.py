@@ -1,8 +1,3 @@
-"""
-Build mappings between ENUMs and actual message types automatically
-"""
-import json
-
 from proto import demo_pb2, netmessages_pb2, usermessages_pb2
 from proto import dota_usermessages_pb2, dota_shared_enums_pb2
 

@@ -6,10 +6,6 @@ import snappy
 
 
 class FileReader(object):
-    """
-    Some utilities to make it a bit easier to read values out of the .dem file
-    """
-
     def __init__(self, stream):
         self.stream = stream
         stream.seek(0, 2)
@@ -20,9 +16,6 @@ class FileReader(object):
         self.pos = 0
         self.bit_count = 0
         self.bit_val = 0
-
-    def more(self):
-        return self.remaining > 0
 
     def nibble(self, length):
         self.remaining -= length
@@ -77,8 +70,8 @@ class FileReader(object):
 
     def read_bits(self, n):
         while n > self.bit_count:
-            nextByte = self.next_byte()
-            self.bit_val |= nextByte << self.bit_count
+            next_byte = self.next_byte()
+            self.bit_val |= next_byte << self.bit_count
             self.bit_count += 8
 
         x = (self.bit_val & ((1 << n) - 1))
@@ -190,7 +183,6 @@ class FileReader(object):
 
         intval = self.read_bits(1)
         fractval = self.read_bits(1)
-        signbit = False
 
         if intval != 0 or fractval != 0:
             signbit = self.read_boolean()
@@ -227,8 +219,8 @@ class FileReader(object):
 
     def read_normal(self):
         is_neg = self.read_boolean()
-        len = self.read_bits(11)
-        ret = float(len) * float(1.0 / (float(1 << 11) - 1.0))
+        length = self.read_bits(11)
+        ret = float(length) * float(1.0 / (float(1 << 11) - 1.0))
 
         if is_neg:
             return -ret
@@ -238,16 +230,16 @@ class FileReader(object):
     def read_3bit_normal(self):
         ret = [0.0, 0.0, 0.0]
 
-        hasX = self.read_boolean()
-        hasY = self.read_boolean()
+        has_x = self.read_boolean()
+        has_y = self.read_boolean()
 
-        if hasX:
+        if has_x:
             ret[0] = self.read_normal()
 
-        if hasY:
+        if has_y:
             ret[1] = self.read_normal()
 
-        negZ = self.read_boolean()
+        neg_z = self.read_boolean()
         prodsum = ret[0] * ret[0] + ret[1] * ret[1]
 
         if prodsum < 1.0:
@@ -255,7 +247,7 @@ class FileReader(object):
         else:
             ret[2] = 0.0
 
-        if negZ:
+        if neg_z:
             ret[2] = -ret[2]
 
         return ret
@@ -290,3 +282,9 @@ class FileReader(object):
         m.ParseFromString(b)
 
         return m, b
+
+    def check_header(self):
+        header = self.read(8)
+        self.read(8)
+        if header.decode("utf-8") != "PBDEMS2\x00":
+            raise ValueError("Invalid replay - incorrect header")
